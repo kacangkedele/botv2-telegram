@@ -2,8 +2,6 @@ import json
 import os
 import re
 import asyncio
-import sys
-import signal
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import (
@@ -149,7 +147,8 @@ async def answer_admin_error(update: Update):
     if update.callback_query:
         await update.callback_query.answer("❌ Anda bukan admin!", show_alert=True)
         return
-    await update.effective_message.reply_text("❌ Anda bukan admin!")
+    if update.effective_message:
+        await update.effective_message.reply_text("❌ Anda bukan admin!")
 
 
 async def require_admin(update: Update):
@@ -165,7 +164,8 @@ async def send_or_edit(update: Update, text: str, buttons=None):
         await update.callback_query.edit_message_text(text, reply_markup=buttons)
         await update.callback_query.answer()
         return
-    await update.effective_message.reply_text(text, reply_markup=buttons)
+    if update.effective_message:
+        await update.effective_message.reply_text(text, reply_markup=buttons)
 
 
 async def handle_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -483,12 +483,7 @@ async def handle_bet_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.effective_message.reply_text(msg)
 
 
-application = None
-
-
 async def main():
-    global application
-    
     application = Application.builder().token(BOT_TOKEN).build()
 
     application.add_handler(CommandHandler("menu", handle_menu))
@@ -513,39 +508,13 @@ async def main():
     print("  📌 Gunakan /menu atau /help di grup untuk membuka menu.")
     print("=" * 50)
 
-    await application.initialize()
-    await application.start()
-    await application.updater.start_polling(allowed_updates=Update.ALL_TYPES)
-
-
-def signal_handler(sig, frame):
-    print("\n\n👋 Menerima signal shutdown...")
-    if application:
-        asyncio.create_task(shutdown_bot())
-
-
-async def shutdown_bot():
-    print("🛑 Bot sedang shutdown...")
-    try:
-        await application.updater.stop()
-        await application.stop()
-        await application.shutdown()
-        print("✅ Bot shutdown berhasil!")
-    except Exception as e:
-        print(f"⚠️ Error saat shutdown: {e}")
-    finally:
-        sys.exit(0)
+    await application.run_polling(allowed_updates=Update.ALL_TYPES)
 
 
 if __name__ == "__main__":
-    signal.signal(signal.SIGINT, signal_handler)
-    signal.signal(signal.SIGTERM, signal_handler)
-    
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        print("\n\n👋 Bot dihentikan oleh user.")
-        sys.exit(0)
+        print("\n\n👋 Bot dihentikan. Sampai jumpa!")
     except Exception as e:
         print(f"\n❌ Error: {e}")
-        sys.exit(1)
