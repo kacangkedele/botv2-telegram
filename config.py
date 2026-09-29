@@ -1,15 +1,15 @@
 # ═══════════════════════════════════════════
-# KONFIGURASI UBOT LIST (Bot API)
+# KONFIGURASI UBOT LIST (BOT TOKEN)
 # ═══════════════════════════════════════════
 
-# Gunakan token yang diberikan BotFather
-BOT_TOKEN = "YOUR_BOT_TOKEN_HERE"  # Ganti dengan token bot kamu, format: 123456:ABC-DEF...
+# Ambil token dari @BotFather di Telegram
+BOT_TOKEN = "YOUR_BOT_TOKEN_HERE"  # Contoh: 123456:ABCDEF1234567890
 
 # ID Telegram admin (integer). Bisa lebih dari 1.
-# Cek ID di @userinfobot
+# Cek ID-nya di @userinfobot
 ADMIN_IDS = [
     7075839329,    # Ganti dengan ID Telegram kamu
-    # 987654321,   # Tambah admin lain jika perlu
+    # 987654321,  # Tambah admin lain jika perlu
 ]
 
 # File penyimpanan data

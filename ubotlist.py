@@ -1,32 +1,19 @@
-"""
-╔══════════════════════════════════════════════════╗
-║        UBOT LIST - Manajemen Taruhan K/B         ║
-║          With Beautiful Button Interface         ║
-║             By Angga Official                    ║
-╚══════════════════════════════════════════════════╝
-"""
-
+import json
 import os
 import re
-import json
-import asyncio
-from telethon import TelegramClient, events
-from telethon.tl.types import KeyboardButton, ReplyInlineMarkup, InlineKeyboardButton, InlineKeyboardMarkup
-from config import API_ID, API_HASH, ADMIN_IDS, SESSION_NAME, DATA_FILE
 
-# ═══════════════════════════════════════════
-# FIX PYTHON 3.14: Buat event loop manual
-# ═══════════════════════════════════════════
-try:
-    loop = asyncio.get_running_loop()
-except RuntimeError:
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram.ext import (
+    Application,
+    CallbackQueryHandler,
+    CommandHandler,
+    ContextTypes,
+    MessageHandler,
+    filters,
+)
 
+from config import ADMIN_IDS, BOT_TOKEN, DATA_FILE
 
-# ═══════════════════════════════════════════
-# STORAGE - Load & Save JSON
-# ═══════════════════════════════════════════
 
 def load_data():
     if os.path.exists(DATA_FILE):
@@ -43,6 +30,7 @@ def load_data():
         "geseran": {},
     }
 
+
 def save_data():
     try:
         with open(DATA_FILE, "w", encoding="utf-8") as f:
@@ -50,20 +38,21 @@ def save_data():
     except Exception as e:
         print(f"[ERROR] Gagal save data: {e}")
 
+
 data = load_data()
 
-# ═══════════════════════════════════════════
-# HELPER FUNCTIONS
-# ═══════════════════════════════════════════
 
 def is_admin(user_id):
-    return user_id in ADMIN_IDS
+    return int(user_id) in ADMIN_IDS
+
 
 def is_active(chat_id):
     return data["active"].get(str(chat_id), False)
 
+
 def is_perak(chat_id):
     return data["perak_mode"].get(str(chat_id), True)
+
 
 def get_bets(chat_id):
     cid = str(chat_id)
@@ -71,11 +60,13 @@ def get_bets(chat_id):
         data["bets"][cid] = {}
     return data["bets"][cid]
 
+
 def get_geseran(chat_id):
     cid = str(chat_id)
     if cid not in data["geseran"]:
         data["geseran"][cid] = {}
     return data["geseran"][cid]
+
 
 def parse_bet(text):
     text = text.strip().upper().replace(",", ".")
@@ -87,6 +78,7 @@ def parse_bet(text):
         return m.group(2), float(m.group(1))
     return None, None
 
+
 def calc_amount(raw, perak_mode):
     if perak_mode:
         return int(raw * 1000)
@@ -94,87 +86,84 @@ def calc_amount(raw, perak_mode):
         return int(raw)
     return raw
 
+
 def format_amount(amount):
     if isinstance(amount, int):
         return f"{amount:,}".replace(",", ".")
     return str(amount)
 
+
 async def get_display_name(user):
     if not user:
         return "Unknown"
-    name = user.first_name or ""
-    if user.last_name:
-        name += f" {user.last_name}"
-    return name.strip() or f"User_{user.id}"
+    name = getattr(user, "first_name", "") or ""
+    last_name = getattr(user, "last_name", "") or ""
+    if last_name:
+        name = f"{name} {last_name}".strip()
+    return name.strip() or f"User_{getattr(user, 'id', 'unknown')}"
+
 
 def create_main_menu():
-    """Buat tombol menu utama"""
     buttons = [
-        [InlineKeyboardButton("✅ ON Bot", callback_data="cmd_on"),
-         InlineKeyboardButton("❌ OFF Bot", callback_data="cmd_off")],
-        [InlineKeyboardButton("📋 LIST", callback_data="cmd_list"),
-         InlineKeyboardButton("🗑 RESET", callback_data="cmd_rs")],
-        [InlineKeyboardButton("📊 REKAP", callback_data="cmd_rk"),
-         InlineKeyboardButton("💰 PERAK", callback_data="cmd_perak")],
+        [
+            InlineKeyboardButton("✅ ON Bot", callback_data="cmd_on"),
+            InlineKeyboardButton("❌ OFF Bot", callback_data="cmd_off"),
+        ],
+        [
+            InlineKeyboardButton("📋 LIST", callback_data="cmd_list"),
+            InlineKeyboardButton("🗑 RESET", callback_data="cmd_rs"),
+        ],
+        [
+            InlineKeyboardButton("📊 REKAP", callback_data="cmd_rk"),
+            InlineKeyboardButton("💰 PERAK", callback_data="cmd_perak"),
+        ],
         [InlineKeyboardButton("💵 NON-PERAK", callback_data="cmd_nonperak")],
         [InlineKeyboardButton("📖 BANTUAN", callback_data="cmd_help")],
     ]
     return InlineKeyboardMarkup(buttons)
 
+
 def create_list_menu():
-    """Buat tombol untuk list"""
     buttons = [
-        [InlineKeyboardButton("🔄 REFRESH", callback_data="cmd_list"),
-         InlineKeyboardButton("📊 REKAP", callback_data="cmd_rk")],
+        [
+            InlineKeyboardButton("🔄 REFRESH", callback_data="cmd_list"),
+            InlineKeyboardButton("📊 REKAP", callback_data="cmd_rk"),
+        ],
         [InlineKeyboardButton("🗑 RESET LIST", callback_data="cmd_rs")],
         [InlineKeyboardButton("⬅️ KEMBALI", callback_data="cmd_menu")],
     ]
     return InlineKeyboardMarkup(buttons)
 
+
 def create_help_menu():
-    """Buat tombol untuk bantuan"""
-    buttons = [
-        [InlineKeyboardButton("⬅️ KEMBALI", callback_data="cmd_menu")],
-    ]
-    return InlineKeyboardMarkup(buttons)
-
-# ═══════════════════════════════════════════
-# INISIALISASI CLIENT
-# ═══════════════════════════════════════════
-
-client = TelegramClient(SESSION_NAME, API_ID, API_HASH, loop=loop)
+    return InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ KEMBALI", callback_data="cmd_menu")]])
 
 
-# ═══════════════════════════════════════════
-# CALLBACK HANDLERS
-# ═══════════════════════════════════════════
+async def answer_admin_error(update: Update):
+    if update.callback_query:
+        await update.callback_query.answer("❌ Anda bukan admin!", show_alert=True)
+        return
+    await update.effective_message.reply_text("❌ Anda bukan admin!")
 
-@client.on(events.CallbackQuery())
-async def handle_callback(event):
-    data_query = event.data.decode('utf-8')
-    
-    if data_query == "cmd_menu":
-        await handle_menu(event)
-    elif data_query == "cmd_on":
-        await handle_on(event)
-    elif data_query == "cmd_off":
-        await handle_off(event)
-    elif data_query == "cmd_list":
-        await handle_list(event)
-    elif data_query == "cmd_rs":
-        await handle_rs(event)
-    elif data_query == "cmd_rk":
-        await handle_rk(event)
-    elif data_query == "cmd_perak":
-        await handle_perak(event)
-    elif data_query == "cmd_nonperak":
-        await handle_nonperak(event)
-    elif data_query == "cmd_help":
-        await handle_help(event)
 
-async def handle_menu(event):
-    if not is_admin(event.sender_id):
-        await event.answer("❌ Anda bukan admin!", alert=True)
+async def require_admin(update: Update):
+    user_id = update.effective_user.id if update.effective_user else None
+    if user_id is None or not is_admin(user_id):
+        await answer_admin_error(update)
+        return False
+    return True
+
+
+async def send_or_edit(update: Update, text: str, buttons=None):
+    if update.callback_query:
+        await update.callback_query.edit_message_text(text, reply_markup=buttons)
+        await update.callback_query.answer()
+        return
+    await update.effective_message.reply_text(text, reply_markup=buttons)
+
+
+async def handle_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await require_admin(update):
         return
     msg = """╔════════════════════════════════════╗
 ║  🤖 UBOT LIST - MENU UTAMA 🤖      ║
@@ -185,14 +174,17 @@ async def handle_menu(event):
 ╚════════════════════════════════════╝
 
 Pilih aksi yang ingin dilakukan:"""
-    await event.edit(msg, buttons=create_main_menu())
-    await event.answer()
+    if update.callback_query:
+        await update.callback_query.edit_message_text(msg, reply_markup=create_main_menu())
+        await update.callback_query.answer()
+    else:
+        await update.message.reply_text(msg, reply_markup=create_main_menu())
 
-async def handle_on(event):
-    if not is_admin(event.sender_id):
-        await event.answer("❌ Anda bukan admin!", alert=True)
+
+async def handle_on(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await require_admin(update):
         return
-    cid = str(event.chat_id)
+    cid = str(update.effective_chat.id)
     data["active"][cid] = True
     if cid not in data["perak_mode"]:
         data["perak_mode"][cid] = True
@@ -207,15 +199,14 @@ async def handle_on(event):
 Silakan mulai pasang bet di grup.
 📝 Format: K5, B10, atau 5K, 10B
 
-Ketik .cmd untuk bantuan lengkap."""
-    await event.edit(msg, buttons=create_main_menu())
-    await event.answer("✅ Bot berhasil diaktifkan!")
+Ketik /cmd untuk bantuan lengkap."""
+    await send_or_edit(update, msg, create_main_menu())
 
-async def handle_off(event):
-    if not is_admin(event.sender_id):
-        await event.answer("❌ Anda bukan admin!", alert=True)
+
+async def handle_off(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await require_admin(update):
         return
-    cid = str(event.chat_id)
+    cid = str(update.effective_chat.id)
     data["active"][cid] = False
     save_data()
     msg = """╔════════════════════════════════════╗
@@ -226,11 +217,11 @@ async def handle_off(event):
 
 Untuk mengaktifkan kembali,
 klik tombol ✅ ON Bot"""
-    await event.edit(msg, buttons=create_main_menu())
-    await event.answer("❌ Bot berhasil dimatikan!")
+    await send_or_edit(update, msg, create_main_menu())
 
-async def handle_list(event):
-    bets = get_bets(event.chat_id)
+
+async def handle_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    bets = get_bets(update.effective_chat.id)
     if not bets:
         msg = """╔════════════════════════════════════╗
 ║  📋 LIST RONDE INI 📋              ║
@@ -258,33 +249,32 @@ pasang bet terlebih dahulu. 💰"""
         msg = "╔════════════════════════════════════╗\n"
         msg += "║  📋 LIST RONDE INI 📋              ║\n"
         msg += "╚════════════════════════════════════╝\n\n"
-        
+
         if k_list:
             msg += "🔻 **KECIL (K)**\n"
             msg += "\n".join(k_list) + "\n\n"
         else:
             msg += "🔻 KECIL: - (kosong)\n\n"
-        
+
         if b_list:
             msg += "🔺 **BESAR (B)**\n"
             msg += "\n".join(b_list) + "\n\n"
         else:
             msg += "🔺 BESAR: - (kosong)\n\n"
-        
+
         msg += "═══════════════════════════════════\n"
         msg += f"💰 Total K: **{format_amount(k_total)}**\n"
         msg += f"💰 Total B: **{format_amount(b_total)}**\n"
         msg += f"👥 Pemain: **{len(bets)}** orang\n"
         msg += "═══════════════════════════════════"
 
-    await event.edit(msg, buttons=create_list_menu())
-    await event.answer()
+    await send_or_edit(update, msg, create_list_menu())
 
-async def handle_rs(event):
-    if not is_admin(event.sender_id):
-        await event.answer("❌ Anda bukan admin!", alert=True)
+
+async def handle_rs(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await require_admin(update):
         return
-    cid = str(event.chat_id)
+    cid = str(update.effective_chat.id)
     data["bets"][cid] = {}
     save_data()
     msg = """╔════════════════════════════════════╗
@@ -297,11 +287,11 @@ async def handle_rs(event):
 Silakan mulai pasang bet lagi! 💰
 
 📝 Format: K5, B10, atau 5K, 10B"""
-    await event.edit(msg, buttons=create_main_menu())
-    await event.answer("✅ List berhasil direset!")
+    await send_or_edit(update, msg, create_main_menu())
 
-async def handle_rk(event):
-    bets = get_bets(event.chat_id)
+
+async def handle_rk(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    bets = get_bets(update.effective_chat.id)
     if not bets:
         msg = """╔════════════════════════════════════╗
 ║  📊 REKAP TOTAL 📊                  ║
@@ -322,27 +312,26 @@ Tidak ada yang bisa direkap."""
         msg += f"🔻 KECIL: {k_count} pemain → **{format_amount(k_total)}**\n"
         msg += f"🔺 BESAR: {b_count} pemain → **{format_amount(b_total)}**\n"
         msg += "═══════════════════════════════════\n\n"
-        
+
         if k_total > b_total:
-            msg += f"⚠️ **BESAR KURANG**\n"
+            msg += "⚠️ **BESAR KURANG**\n"
             msg += f"💰 B perlu +**{format_amount(selisih)}**\n\n"
             msg += "📌 Tambahkan bet di pihak B!"
         elif b_total > k_total:
-            msg += f"⚠️ **KECIL KURANG**\n"
+            msg += "⚠️ **KECIL KURANG**\n"
             msg += f"💰 K perlu +**{format_amount(selisih)}**\n\n"
             msg += "📌 Tambahkan bet di pihak K!"
         else:
-            msg += f"✅ **SEIMBANG!**\n"
-            msg += f"🎯 K dan B sudah seimbang sempurna!"
+            msg += "✅ **SEIMBANG!**\n"
+            msg += "🎯 K dan B sudah seimbang sempurna!"
 
-    await event.edit(msg, buttons=create_list_menu())
-    await event.answer()
+    await send_or_edit(update, msg, create_list_menu())
 
-async def handle_perak(event):
-    if not is_admin(event.sender_id):
-        await event.answer("❌ Anda bukan admin!", alert=True)
+
+async def handle_perak(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await require_admin(update):
         return
-    data["perak_mode"][str(event.chat_id)] = True
+    data["perak_mode"][str(update.effective_chat.id)] = True
     save_data()
     msg = """╔════════════════════════════════════╗
 ║  💰 MODE PERAK AKTIF 💰              ║
@@ -354,14 +343,13 @@ B10 = 10.000
 B50 = 50.000
 
 ✅ Setiap bet akan dikali 1000"""
-    await event.edit(msg, buttons=create_main_menu())
-    await event.answer("✅ Mode PERAK diaktifkan!")
+    await send_or_edit(update, msg, create_main_menu())
 
-async def handle_nonperak(event):
-    if not is_admin(event.sender_id):
-        await event.answer("❌ Anda bukan admin!", alert=True)
+
+async def handle_nonperak(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await require_admin(update):
         return
-    data["perak_mode"][str(event.chat_id)] = False
+    data["perak_mode"][str(update.effective_chat.id)] = False
     save_data()
     msg = """╔════════════════════════════════════╗
 ║  💵 MODE NON-PERAK AKTIF 💵          ║
@@ -373,10 +361,10 @@ B10 = 10
 B50 = 50
 
 ✅ Bet akan dihitung nilai aslinya"""
-    await event.edit(msg, buttons=create_main_menu())
-    await event.answer("✅ Mode NON-PERAK diaktifkan!")
+    await send_or_edit(update, msg, create_main_menu())
 
-async def handle_help(event):
+
+async def handle_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = """╔════════════════════════════════════╗
 ║  📖 PANDUAN LENGKAP 📖              ║
 ╚════════════════════════════════════╝
@@ -397,222 +385,133 @@ B10 = Besar 10
 10B = Besar 10 (dibalik)
 
 ⚙️ **COMMAND TEXT**
-.on / .off = Aktif/Matikan
-.list = Daftar bet
-.rs = Reset
-.rk = Rekap
-.perak / .nonperak = Mode
-.cmd = Bantuan
+/on /off = Aktif/Matikan
+/list = Daftar bet
+/rs = Reset
+/rk = Rekap
+/perak /nonperak = Mode
+/cmd = Bantuan
+
+Legacy alias .on/.off/.list/.rs/.rk/.perak/.nonperak/.cmd masih didukung.
 
 👨‍💼 Hanya admin yang bisa
 gunakan command!"""
-    await event.edit(msg, buttons=create_help_menu())
-    await event.answer()
+    await send_or_edit(update, msg, create_help_menu())
 
-# ═══════════════════════════════════════════
-# COMMAND: .menu (Buka menu tombol)
-# ═══════════════════════════════════════════
 
-@client.on(events.NewMessage(pattern=r"^[./]menu$"))
-async def cmd_menu(event):
-    if not is_admin(event.sender_id):
+async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not update.callback_query:
         return
-    msg = """╔════════════════════════════════════╗
-║  🤖 UBOT LIST - MENU UTAMA 🤖      ║
-║                                    ║
-║  Selamat datang di UBOT LIST!     ║
-║  Gunakan tombol di bawah untuk    ║
-║  mengelola taruhan K/B 💰         ║
-╚════════════════════════════════════╝
+    data_query = update.callback_query.data
 
-Pilih aksi yang ingin dilakukan:"""
-    await event.reply(msg, buttons=create_main_menu())
+    if data_query == "cmd_menu":
+        await handle_menu(update, context)
+    elif data_query == "cmd_on":
+        await handle_on(update, context)
+    elif data_query == "cmd_off":
+        await handle_off(update, context)
+    elif data_query == "cmd_list":
+        await handle_list(update, context)
+    elif data_query == "cmd_rs":
+        await handle_rs(update, context)
+    elif data_query == "cmd_rk":
+        await handle_rk(update, context)
+    elif data_query == "cmd_perak":
+        await handle_perak(update, context)
+    elif data_query == "cmd_nonperak":
+        await handle_nonperak(update, context)
+    elif data_query == "cmd_help":
+        await handle_help(update, context)
 
-@client.on(events.NewMessage(pattern=r"^[./]on$"))
-async def cmd_on_text(event):
-    if not is_admin(event.sender_id):
+
+async def handle_legacy_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not update.effective_message or not update.effective_message.text:
         return
-    cid = str(event.chat_id)
-    data["active"][cid] = True
-    if cid not in data["perak_mode"]:
-        data["perak_mode"][cid] = True
-    save_data()
-    msg = """╔════════════════════════════════════╗
-║  ✅ UBOT LIST AKTIF ✅              ║
-╚════════════════════════════════════╝
-
-🎯 Bot mulai mencatat bet!
-🔄 Mode: PERAK (B1 = 1000)
-
-Silakan mulai pasang bet di grup.
-📝 Format: K5, B10, atau 5K, 10B
-
-Ketik .cmd untuk bantuan lengkap."""
-    await event.reply(msg, buttons=create_main_menu())
-
-@client.on(events.NewMessage(pattern=r"^[./]off$"))
-async def cmd_off_text(event):
-    if not is_admin(event.sender_id):
+    text = update.effective_message.text.strip()
+    if not text.startswith("."):
         return
-    cid = str(event.chat_id)
-    data["active"][cid] = False
-    save_data()
-    msg = """╔════════════════════════════════════╗
-║  ❌ UBOT LIST DIMATIKAN ❌          ║
-╚════════════════════════════════════╝
 
-🛑 Bot berhenti mencatat bet.
+    aliases = {
+        ".menu": handle_menu,
+        ".on": handle_on,
+        ".off": handle_off,
+        ".list": handle_list,
+        ".rs": handle_rs,
+        ".rk": handle_rk,
+        ".perak": handle_perak,
+        ".nonperak": handle_nonperak,
+        ".cmd": handle_help,
+    }
+    handler = aliases.get(text.lower())
+    if handler:
+        await handler(update, context)
 
-Untuk mengaktifkan kembali,
-klik tombol ✅ ON Bot"""
-    await event.reply(msg, buttons=create_main_menu())
 
-@client.on(events.NewMessage(pattern=r"^[./]list$"))
-async def cmd_list_text(event):
-    bets = get_bets(event.chat_id)
-    if not bets:
-        msg = """╔════════════════════════════════════╗
-║  📋 LIST RONDE INI 📋              ║
-╚════════════════════════════════════╝
-
-❌ List masih kosong!
-Belum ada yang pasang bet."""
-    else:
-        k_list, b_list = [], []
-        for uid, info in bets.items():
-            line = f"• {info['name']} {format_amount(info['amount'])}"
-            if info["username"]:
-                line += f" {info['username']}"
-            if info["type"] == "K":
-                k_list.append(line)
-            else:
-                b_list.append(line)
-
-        k_total = sum(i["amount"] for i in bets.values() if i["type"] == "K")
-        b_total = sum(i["amount"] for i in bets.values() if i["type"] == "B")
-
-        msg = "╔════════════════════════════════════╗\n"
-        msg += "║  📋 LIST RONDE INI 📋              ║\n"
-        msg += "╚════════════════════════════════════╝\n\n"
-        msg += "🔻 **KECIL (K)**\n" if k_list else "🔻 KECIL: - (kosong)\n"
-        msg += ("\n".join(k_list) + "\n\n") if k_list else ""
-        msg += "🔺 **BESAR (B)**\n" if b_list else "🔺 BESAR: - (kosong)\n"
-        msg += ("\n".join(b_list) + "\n\n") if b_list else ""
-        msg += "═══════════════════════════════════\n"
-        msg += f"💰 Total K: **{format_amount(k_total)}**\n"
-        msg += f"💰 Total B: **{format_amount(b_total)}**\n"
-        msg += f"👥 Pemain: **{len(bets)}** orang"
-
-    await event.reply(msg, buttons=create_list_menu())
-
-@client.on(events.NewMessage(pattern=r"^[./]rs$"))
-async def cmd_rs_text(event):
-    if not is_admin(event.sender_id):
+async def handle_bet_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not update.effective_message or not update.effective_message.text:
         return
-    cid = str(event.chat_id)
-    data["bets"][cid] = {}
-    save_data()
-    msg = """╔════════════════════════════════════╗
-║  🗑 RESET LIST - RONDE BARU 🗑      ║
-╚════════════════════════════════════╝
-
-✅ List berhasil dikosongkan!
-
-🎯 Ronde baru dimulai.
-Silakan mulai pasang bet lagi! 💰"""
-    await event.reply(msg, buttons=create_main_menu())
-
-@client.on(events.NewMessage(pattern=r"^[./]cmd$"))
-async def cmd_help_text(event):
-    msg = """╔════════════════════════════════════╗
-║  📖 PANDUAN LENGKAP 📖              ║
-╚════════════════════════════════════╝
-
-🔘 **COMMAND UTAMA**
-.on = Aktifkan bot
-.off = Matikan bot
-.list = Lihat daftar bet
-.rs = Reset list
-.rk = Rekap total
-.perak = Mode x1000
-.nonperak = Mode normal
-.menu = Buka menu tombol
-
-📝 **FORMAT BET**
-K5 = Kecil 5
-B10 = Besar 10
-5K = Kecil 5 (dibalik)
-10B = Besar 10 (dibalik)
-
-👨‍💼 Hanya admin yang bisa
-gunakan command!
-
-🤖 Klik /menu untuk tombol utama"""
-    await event.reply(msg, buttons=create_help_menu())
-
-# ═══════════════════════════════════════════
-# HANDLER: Pasang Bet (K5, B10, 5K, 10B)
-# ═══════════════════════════════════════════
-
-@client.on(events.NewMessage())
-async def handle_bet(event):
-    if not event.text or not is_active(event.chat_id):
+    if not is_active(update.effective_chat.id):
         return
-    text = event.text.strip()
-    if text.startswith(".") or text.startswith("/"):
+
+    text = update.effective_message.text.strip()
+    if text.startswith("/") or text.startswith("."):
         return
 
     bet_type, raw = parse_bet(text)
     if bet_type is None:
         return
 
-    amount = calc_amount(raw, is_perak(event.chat_id))
-    try:
-        user = await event.get_sender()
-        name = await get_display_name(user)
-    except Exception:
-        name = f"User_{event.sender_id}"
-        user = None
-    
-    uname = f"@{user.username}" if user and user.username else ""
-    get_bets(event.chat_id)[str(event.sender_id)] = {
+    user = update.effective_user
+    name = await get_display_name(user)
+    uname = f"@{user.username}" if user and getattr(user, "username", None) else ""
+    get_bets(update.effective_chat.id)[str(user.id)] = {
         "name": name,
         "username": uname,
         "type": bet_type,
-        "amount": amount
+        "amount": calc_amount(raw, is_perak(update.effective_chat.id)),
     }
     save_data()
     display_raw = int(raw) if raw == int(raw) else raw
-    
     emoji_type = "🔻" if bet_type == "K" else "🔺"
     msg = f"{emoji_type} **{name}** → {bet_type}{display_raw}"
-    await event.reply(msg)
+    await update.effective_message.reply_text(msg)
 
-# ═══════════════════════════════════════════
-# MAIN
-# ═══════════════════════════════════════════
 
 async def main():
+    application = Application.builder().token(BOT_TOKEN).build()
+
+    application.add_handler(CommandHandler("menu", handle_menu))
+    application.add_handler(CommandHandler("on", handle_on))
+    application.add_handler(CommandHandler("off", handle_off))
+    application.add_handler(CommandHandler("list", handle_list))
+    application.add_handler(CommandHandler("rs", handle_rs))
+    application.add_handler(CommandHandler("rk", handle_rk))
+    application.add_handler(CommandHandler("perak", handle_perak))
+    application.add_handler(CommandHandler("nonperak", handle_nonperak))
+    application.add_handler(CommandHandler("cmd", handle_help))
+    application.add_handler(CommandHandler("help", handle_help))
+
+    application.add_handler(CallbackQueryHandler(handle_callback, pattern=r"^cmd_"))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_legacy_commands))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_bet_text))
+
     print("=" * 50)
     print("  🚀 UBOT LIST - STARTING...")
     print("=" * 50)
-    await client.start()
-    me = await client.get_me()
-    print(f"\n  ✅ Login sebagai: {me.first_name}")
-    if me.username:
-        print(f"  📱 Username: @{me.username}")
-    print(f"  🆔 ID: {me.id}")
-    print(f"  👑 Admin IDs: {ADMIN_IDS}")
-    print("\n  📋 Bot aktif & menunggu command...")
-    print("  Ketik .menu atau /menu di grup untuk membuka menu tombol.")
+    print("  ✅ Bot token siap dipakai.")
+    print("  📌 Gunakan /menu atau /help di grup untuk membuka menu.")
     print("=" * 50)
-    print("  Tekan Ctrl+C untuk berhenti.\n")
-    await client.run_until_disconnected()
+
+    await application.run_polling(allowed_updates=Update.ALL_TYPES)
+
 
 if __name__ == "__main__":
     try:
-        loop.run_until_complete(main())
+        import asyncio
+
+        asyncio.run(main())
     except KeyboardInterrupt:
         print("\n\n👋 Bot dihentikan. Sampai jumpa!")
     except Exception as e:
         print(f"\n❌ Error: {e}")
+
