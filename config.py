@@ -1,20 +1,16 @@
 # ═══════════════════════════════════════════
-# KONFIGURASI UBOT LIST
+# KONFIGURASI UBOT LIST (Bot API)
 # ═══════════════════════════════════════════
 
-# Dapatkan API_ID & API_HASH di https://my.telegram.org
-API_ID = "7075839329"             # Ganti dengan API ID kamu
-API_HASH = "your_api_hash_here"   # Ganti dengan API HASH kamu
+# Gunakan token yang diberikan BotFather
+BOT_TOKEN = "YOUR_BOT_TOKEN_HERE"  # Ganti dengan token bot kamu, format: 123456:ABC-DEF...
 
-# ID Telegram kamu (admin). Bisa lebih dari 1.
+# ID Telegram admin (integer). Bisa lebih dari 1.
 # Cek ID di @userinfobot
 ADMIN_IDS = [
     7075839329,    # Ganti dengan ID Telegram kamu
-    # 987654321,  # Tambah admin lain jika perlu
+    # 987654321,   # Tambah admin lain jika perlu
 ]
-
-# Nama session file (akan dibuat otomatis)
-SESSION_NAME = "ubot_list"
 
 # File penyimpanan data
 DATA_FILE = "ubot_data.json"
