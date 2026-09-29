@@ -1,0 +1,6 @@
+ubot_list.session
+ubot_data.json
+__pycache__/
+*.session-journal
+*.pyc
+.DS_Store
