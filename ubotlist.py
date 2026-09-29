@@ -20,8 +20,10 @@ def load_data():
         try:
             with open(DATA_FILE, "r", encoding="utf-8") as f:
                 return json.load(f)
-        except Exception:
-            pass
+        except json.JSONDecodeError as e:
+            print(f"[ERROR] Invalid JSON in data file: {e}")
+        except Exception as e:
+            print(f"[ERROR] Gagal load data: {e}")
     return {
         "active": {},
         "perak_mode": {},
@@ -506,12 +508,11 @@ async def main():
 
 
 if __name__ == "__main__":
-    try:
-        import asyncio
+    import asyncio
 
+    try:
         asyncio.run(main())
     except KeyboardInterrupt:
         print("\n\n👋 Bot dihentikan. Sampai jumpa!")
     except Exception as e:
         print(f"\n❌ Error: {e}")
-
