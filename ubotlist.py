@@ -3,6 +3,7 @@ import os
 import re
 import asyncio
 import sys
+import signal
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import (
@@ -482,7 +483,12 @@ async def handle_bet_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.effective_message.reply_text(msg)
 
 
+application = None
+
+
 async def main():
+    global application
+    
     application = Application.builder().token(BOT_TOKEN).build()
 
     application.add_handler(CommandHandler("menu", handle_menu))
@@ -507,18 +513,38 @@ async def main():
     print("  📌 Gunakan /menu atau /help di grup untuk membuka menu.")
     print("=" * 50)
 
-    async with application:
-        await application.initialize()
-        await application.start()
-        await application.updater.start_polling(allowed_updates=Update.ALL_TYPES)
+    await application.initialize()
+    await application.start()
+    await application.updater.start_polling(allowed_updates=Update.ALL_TYPES)
+
+
+def signal_handler(sig, frame):
+    print("\n\n👋 Menerima signal shutdown...")
+    if application:
+        asyncio.create_task(shutdown_bot())
+
+
+async def shutdown_bot():
+    print("🛑 Bot sedang shutdown...")
+    try:
+        await application.updater.stop()
         await application.stop()
+        await application.shutdown()
+        print("✅ Bot shutdown berhasil!")
+    except Exception as e:
+        print(f"⚠️ Error saat shutdown: {e}")
+    finally:
+        sys.exit(0)
 
 
 if __name__ == "__main__":
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+    
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        print("\n\n👋 Bot dihentikan. Sampai jumpa!")
+        print("\n\n👋 Bot dihentikan oleh user.")
         sys.exit(0)
     except Exception as e:
         print(f"\n❌ Error: {e}")
