@@ -1,6 +1,8 @@
 import json
 import os
 import re
+import asyncio
+import traceback
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import (
@@ -322,7 +324,7 @@ Tidak ada yang bisa direkap."""
             msg += "📌 Tambahkan bet di pihak B!"
         elif b_total > k_total:
             msg += "⚠️ **KECIL KURANG**\n"
-            msg += f"💰 K perlu +**{format_amount(selisish)}**\n\n"
+            msg += f"💰 K perlu +**{format_amount(selisih)}**\n\n"
             msg += "📌 Tambahkan bet di pihak K!"
         else:
             msg += "✅ **SEIMBANG!**\n"
@@ -356,7 +358,7 @@ async def handle_nonperak(update: Update, context: ContextTypes.DEFAULT_TYPE):
     save_data()
     msg = """╔════════════════════════════════════╗
 ║  💵 MODE NON-PERAK AKTIF 💵          ║
-╚═══════════════════════��════════════╝
+╚════════════════════════════════════╝
 
 🎯 Taruhan nilai asli:
 B1  = 1
@@ -480,7 +482,8 @@ async def handle_bet_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.effective_message.reply_text(msg)
 
 
-def main():
+async def run_bot():
+    loop = asyncio.get_event_loop()
     application = Application.builder().token(BOT_TOKEN).build()
 
     application.add_handler(CommandHandler("menu", handle_menu))
@@ -505,15 +508,19 @@ def main():
     print("  📌 Gunakan /menu atau /help di grup untuk membuka menu.")
     print("=" * 50)
 
-    application.run_polling(allowed_updates=Update.ALL_TYPES)
+    await application.initialize()
+    await application.start()
+    await application.updater.start_polling(allowed_updates=Update.ALL_TYPES)
+    await application.updater.wait_until_stopped()
+    await application.stop()
+    await application.shutdown()
 
 
 if __name__ == "__main__":
     try:
-        main()
+        asyncio.run(run_bot())
     except KeyboardInterrupt:
         print("\n\n👋 Bot dihentikan. Sampai jumpa!")
     except Exception as e:
-        import traceback
         traceback.print_exc()
         print(f"\n❌ Error: {e}")
