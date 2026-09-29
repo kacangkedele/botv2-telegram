@@ -1,74 +1,97 @@
 # Botv2-telegram
-``2Bot with Button feature  2020```
 
-```Berikut adalah kode lengkap untuk UBOT LIST yang bisa dijalankan di Termux dan di-upload ke GitHub. Saya buatkan beberapa file sekaligus.```
+UBOT LIST — Versi yang disesuaikan untuk menggunakan Telegram Bot (BOT_TOKEN) dan perintah dengan slash (/).
+
+> Perubahan utama pada repository ini:
+> - Beralih dari login Telethon (API_ID/API_HASH) ke Telegram Bot Token (BOT_TOKEN).
+> - Menggunakan library `python-telegram-bot` untuk polling bot.
+> - Perintah kini menggunakan slash (contoh: `/menu`) — alias dot (`.menu`) tetap didukung.
+> - File utama: `ubotlist.py` (jalankan dengan `python ubotlist.py`).
 
 ## 📁 Struktur Project
 
 ```
-ubot-list/
-├── config.py
-├── ubot_list.py
-├── requirements.txt
+botv2-telegram/
+├── config.py        # Isi BOT_TOKEN dan ADMIN_IDS
+├── ubotlist.py      # Script utama (python-telegram-bot)
+├── requirements.txt # dependency
 ├── README.md
 └── start.sh
 ```
 
 ---
 
-## 1️⃣ `config.py`
+## 🔧 Konfigurasi (config.py)
+
+Buka `config.py` lalu isi token BotFather dan ID admin.
+
+Contoh isi `config.py`:
 
 ```python
-# ═══════════════════════════════════════════
-# KONFIGURASI UBOT LIST
-# ═══════════════════════════════════════════
+BOT_TOKEN = "123456789:ABCDEFghijklmnopQRSTUVwxYZ"  # Ganti dengan token BotFather
 
-# Dapatkan API_ID & API_HASH di https://my.telegram.org
-API_ID = 123456                    # Ganti dengan API ID kamu
-API_HASH = "your_api_hash_here"   # Ganti dengan API HASH kamu
-
-# ID Telegram kamu (admin). Bisa lebih dari 1.
-# Cek ID di @userinfobot
 ADMIN_IDS = [
-    123456789,    # Ganti dengan ID Telegram kamu
-    # 987654321,  # Tambah admin lain jika perlu
+    123456789,  # Ganti dengan ID Telegram admin
 ]
 
-# Nama session file (akan dibuat otomatis)
-SESSION_NAME = "ubot_list"
-
-# File penyimpanan data
 DATA_FILE = "ubot_data.json"
 ```
 
+Catatan:
+- Jangan publikasikan BOT_TOKEN Anda.
+- Gunakan ID admin (integer) — dapat diambil dari @userinfobot.
+
 ---
 
-## 🚀 Cara Upload ke GitHub
+## ✅ Perintah yang didukung
+
+- /menu — buka menu tombol
+- /on — aktifkan bot di chat
+- /off — matikan bot di chat
+- /list — lihat daftar taruhan ronde ini
+- /rs — reset list (mulai ronde baru)
+- /rk — rekap total
+- /perak — set mode perak (kali 1000)
+- /nonperak — set mode normal
+- /cmd atau /help — panduan lengkap
+
+Alias legacy (masih didukung):
+- .menu, .on, .off, .list, .rs, .rk, .perak, .nonperak, .cmd
+
+Cara memasang taruhan di chat (ketika bot aktif):
+- K5, B10, 5K, 10B (format fleksibel, spasi atau tanpa)
+
+---
+
+## 📦 Instalasi
+
+Pastikan Python 3.9+ terpasang, lalu install dependency:
 
 ```bash
-# Di Termux:
-git init
-git add .
-git commit -m "Initial commit - UBOT LIST"
-git branch -M main
-git remote add origin https://github.com/USERNAME/ubot-list.git
-git push -u origin main
+pip install -r requirements.txt
 ```
 
 ---
 
-## ⚠️ Penting Sebelum Run
+## ▶️ Menjalankan Bot
 
-1. **Edit `config.py`** terlebih dahulu:
-   - Dapatkan `API_ID` & `API_HASH` dari https://my.telegram.org/apps
-   - Isi `ADMIN_IDS` dengan ID Telegram kamu
+1. Edit `config.py` dan masukkan `BOT_TOKEN` serta `ADMIN_IDS`.
+2. Jalankan:
 
-2. **Jangan upload file `ubot_list.session`** ke GitHub (sudah otomatis diabaikan jika pakai `.gitignore`)
-
-3. **Tambahkan `.gitignore`**:
 ```bash
-echo "ubot_list.session" >> .gitignore
-echo "ubot_data.json" >> .gitignore
-echo "__pycache__/" >> .gitignore
-echo "*.session-journal" >> .gitignore
+python ubotlist.py
 ```
+
+Bot akan berjalan menggunakan polling. Di grup, gunakan `/menu` untuk membuka tombol.
+
+---
+
+## ℹ️ Catatan Tambahan
+
+- Data taruhan disimpan di `ubot_data.json`.
+- Jangan commit atau unggah file yang berisi token.
+- Jika ingin fitur tambahan (contoh: /start, backup otomatis, multi-group logging), beri tahu saya untuk saya tambahkan.
+
+---
+
+Terima kasih — selamat mencoba! Jika ingin saya perapikan README lagi (terjemahan, tambahan screenshot, contoh konfigurasi environment), saya bantu lanjutkan.
