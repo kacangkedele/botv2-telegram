@@ -2,6 +2,7 @@ import json
 import os
 import re
 import asyncio
+import sys
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import (
@@ -508,7 +509,10 @@ async def main():
     print("  📌 Gunakan /menu atau /help di grup untuk membuka menu.")
     print("=" * 50)
 
-    await application.run_polling(allowed_updates=Update.ALL_TYPES)
+    async with application:
+        await application.initialize()
+        await application.start()
+        await application.updater.start_polling(allowed_updates=Update.ALL_TYPES)
 
 
 if __name__ == "__main__":
@@ -516,5 +520,9 @@ if __name__ == "__main__":
         asyncio.run(main())
     except KeyboardInterrupt:
         print("\n\n👋 Bot dihentikan. Sampai jumpa!")
+        sys.exit(0)
     except Exception as e:
         print(f"\n❌ Error: {e}")
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
