@@ -1,6 +1,8 @@
 import json
 import os
 import re
+import asyncio
+import signal
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import (
@@ -22,6 +24,7 @@ def load_data():
                 return json.load(f)
         except json.JSONDecodeError as e:
             print(f"[ERROR] Invalid JSON in data file: {e}")
+            print("[INFO] Creating new data file...")
         except Exception as e:
             print(f"[ERROR] Gagal load data: {e}")
     return {
@@ -508,8 +511,6 @@ async def main():
 
 
 if __name__ == "__main__":
-    import asyncio
-
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
