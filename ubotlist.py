@@ -1,8 +1,6 @@
 import json
 import os
 import re
-import asyncio
-import sys
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import (
@@ -21,7 +19,9 @@ def load_data():
     if os.path.exists(DATA_FILE):
         try:
             with open(DATA_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
+                data = json.load(f)
+                if isinstance(data, dict):
+                    return data
         except json.JSONDecodeError as e:
             print(f"[ERROR] Invalid JSON in data file: {e}")
             print("[INFO] Creating new data file...")
@@ -48,7 +48,10 @@ data = load_data()
 
 
 def is_admin(user_id):
-    return int(user_id) in ADMIN_IDS
+    try:
+        return int(user_id) in ADMIN_IDS
+    except (TypeError, ValueError):
+        return False
 
 
 def is_active(chat_id):
@@ -64,13 +67,6 @@ def get_bets(chat_id):
     if cid not in data["bets"]:
         data["bets"][cid] = {}
     return data["bets"][cid]
-
-
-def get_geseran(chat_id):
-    cid = str(chat_id)
-    if cid not in data["geseran"]:
-        data["geseran"][cid] = {}
-    return data["geseran"][cid]
 
 
 def parse_bet(text):
@@ -326,7 +322,7 @@ Tidak ada yang bisa direkap."""
             msg += "📌 Tambahkan bet di pihak B!"
         elif b_total > k_total:
             msg += "⚠️ **KECIL KURANG**\n"
-            msg += f"💰 K perlu +**{format_amount(selisih)}**\n\n"
+            msg += f"💰 K perlu +**{format_amount(selisish)}**\n\n"
             msg += "📌 Tambahkan bet di pihak K!"
         else:
             msg += "✅ **SEIMBANG!**\n"
@@ -360,7 +356,7 @@ async def handle_nonperak(update: Update, context: ContextTypes.DEFAULT_TYPE):
     save_data()
     msg = """╔════════════════════════════════════╗
 ║  💵 MODE NON-PERAK AKTIF 💵          ║
-╚════════════════════════════════════╝
+╚═══════════════════════��════════════╝
 
 🎯 Taruhan nilai asli:
 B1  = 1
@@ -484,7 +480,7 @@ async def handle_bet_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.effective_message.reply_text(msg)
 
 
-async def main():
+def main():
     application = Application.builder().token(BOT_TOKEN).build()
 
     application.add_handler(CommandHandler("menu", handle_menu))
@@ -509,20 +505,15 @@ async def main():
     print("  📌 Gunakan /menu atau /help di grup untuk membuka menu.")
     print("=" * 50)
 
-    async with application:
-        await application.initialize()
-        await application.start()
-        await application.updater.start_polling(allowed_updates=Update.ALL_TYPES)
+    application.run_polling(allowed_updates=Update.ALL_TYPES)
 
 
 if __name__ == "__main__":
     try:
-        asyncio.run(main())
+        main()
     except KeyboardInterrupt:
         print("\n\n👋 Bot dihentikan. Sampai jumpa!")
-        sys.exit(0)
     except Exception as e:
-        print(f"\n❌ Error: {e}")
         import traceback
         traceback.print_exc()
-        sys.exit(1)
+        print(f"\n❌ Error: {e}")
